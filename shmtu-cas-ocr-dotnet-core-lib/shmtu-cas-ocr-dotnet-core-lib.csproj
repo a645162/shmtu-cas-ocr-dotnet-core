@@ -2,9 +2,10 @@
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
-        <RootNamespace>shmtu_cas_ocr_dotnet_core_lib</RootNamespace>
+        <RootNamespace>shmtu.core.cas.ocr</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Authors>Haomin Kong</Authors>
     </PropertyGroup>
 
     <ItemGroup>
