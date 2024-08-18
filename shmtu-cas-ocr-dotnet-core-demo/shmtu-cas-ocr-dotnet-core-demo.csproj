@@ -1,15 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
-        <RootNamespace>shmtu_cas_ocr_dotnet_core_lib</RootNamespace>
+        <RootNamespace>shmtu_cas_ocr_dotnet_core_demo</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.19.0" />
-      <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.19.0" />
+      <ProjectReference Include="..\shmtu-cas-ocr-dotnet-core-lib\shmtu-cas-ocr-dotnet-core-lib.csproj" />
     </ItemGroup>
 
 </Project>
