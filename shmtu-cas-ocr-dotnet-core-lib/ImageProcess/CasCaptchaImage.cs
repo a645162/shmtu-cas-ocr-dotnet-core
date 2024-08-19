@@ -51,7 +51,9 @@ public static class CasCaptchaImage
     }
 
     [SupportedOSPlatform("windows6.2")]
-    public static Bitmap SplitImgByRatio(Bitmap image, float startRatio = 0.7f, float endRatio = 1.0f)
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public static Bitmap SplitImgByRatio(Bitmap image, float startRatio, float endRatio)
     {
         var width = image.Width;
         var height = image.Height;
@@ -63,11 +65,13 @@ public static class CasCaptchaImage
         var cropArea = new Rectangle(horizontalStart, 0, horizontalEnd - horizontalStart, height);
         var croppedImage = new Bitmap(cropArea.Width, cropArea.Height);
 
-        using (var g = Graphics.FromImage(croppedImage))
-        {
-            g.DrawImage(image, new Rectangle(0, 0, croppedImage.Width, croppedImage.Height), cropArea,
-                GraphicsUnit.Pixel);
-        }
+        using var g = Graphics.FromImage(croppedImage);
+        g.DrawImage(
+            image,
+            new Rectangle(0, 0, croppedImage.Width, croppedImage.Height),
+            cropArea,
+            GraphicsUnit.Pixel
+        );
 
         return croppedImage;
     }

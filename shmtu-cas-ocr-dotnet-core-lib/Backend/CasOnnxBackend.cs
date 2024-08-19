@@ -8,28 +8,29 @@ namespace shmtu.core.cas.ocr.Backend;
 
 public class CasOnnxBackend
 {
-    private InferenceSession? _digitSession;
-    private InferenceSession? _equalSymbolSession;
     private bool _isLoaded;
-    private InferenceSession? _operatorSession;
+
+    private InferenceSession? _sessionDigit;
+    private InferenceSession? _sessionEqualSymbol;
+    private InferenceSession? _sessionOperator;
 
     public bool IsLoaded =>
         _isLoaded &&
-        _operatorSession != null &&
-        _digitSession != null &&
-        _equalSymbolSession != null;
+        _sessionOperator != null &&
+        _sessionDigit != null &&
+        _sessionEqualSymbol != null;
 
     public void LoadModel(string directoryPath)
     {
-        _equalSymbolSession =
+        _sessionEqualSymbol =
             new InferenceSession(
                 Path.Combine(directoryPath, ConstValue.ModelOnnxEqualFp32)
             );
-        _operatorSession =
+        _sessionOperator =
             new InferenceSession(
                 Path.Combine(directoryPath, ConstValue.ModelOnnxOperatorFp32)
             );
-        _digitSession =
+        _sessionDigit =
             new InferenceSession(
                 Path.Combine(directoryPath, ConstValue.ModelOnnxDigitFp32)
             );
@@ -40,7 +41,11 @@ public class CasOnnxBackend
     {
         if (session == null) return -1;
 
-        var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("input", inputTensor) };
+        var inputs =
+            new List<NamedOnnxValue>
+            {
+                NamedOnnxValue.CreateFromTensor("input", inputTensor)
+            };
 
         // Run the model
         var results =
@@ -50,7 +55,7 @@ public class CasOnnxBackend
             return -1;
 
         // Get the output tensor
-        var outputTensor = results.First().AsTensor<float>();
+        var outputTensor = results[0].AsTensor<float>();
 
         // Get the index of the highest probability
         var result = Array.IndexOf(outputTensor.ToArray(), outputTensor.Max());
@@ -59,32 +64,53 @@ public class CasOnnxBackend
     }
 
     [SupportedOSPlatform("windows6.2")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
     private static int PredictResNet(InferenceSession? session, Bitmap image)
     {
+        // Only for Debug
+        // image.Save("BeforePredict.png");
+
         // Preprocess the image
-        var inputTensor = ResNetProcess.PreprocessImage(image);
+        var inputTensor = ResNetProcess.ConvertImageToTensor(image);
 
         return PredictModel(session, inputTensor);
     }
 
     // Python Version:src/classify/predict/predict_file.py
     [SupportedOSPlatform("windows6.2")]
-    public (int, string, int, int, int, int) PredictValidateCode(Bitmap image)
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public (int, string, int, int, int, int) PredictValidateCode(string imagePath)
+    {
+        return PredictValidateCode(new Bitmap(imagePath));
+    }
+
+    [SupportedOSPlatform("windows6.2")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public (int, string, int, int, int, int) PredictValidateCode(Bitmap originalImage)
     {
         var defaultValue = (-1, "", -1, -1, -1, -1);
         if (!IsLoaded) return defaultValue;
 
-        if (image.Width == 0 || image.Height == 0) return defaultValue;
+        if (originalImage.Width == 0 || originalImage.Height == 0) return defaultValue;
 
-        var binImage = ImageUtils.ConvertImageToBinary(image);
+        var image = ImageUtils.ConvertImageToBinary(originalImage, CasCaptchaImage.ConfigThresh);
+        image = ImageUtils.RevertImageColor(image);
+
+        // Save Image for Debug
+        // image.Save("input_1.png");
 
         var imageEqualSymbol =
             CasCaptchaImage.SplitImgByRatio(
-                binImage
+                image,
+                CasCaptchaImage.EqualSymbolKeyStart,
+                CasCaptchaImage.EqualSymbolKeyEnd
             );
         var predictedEqualSymbol =
             (CasCaptchaImage.CasExprEqualSymbol)
-            PredictResNet(_equalSymbolSession, imageEqualSymbol);
+            PredictResNet(_sessionEqualSymbol, imageEqualSymbol);
 
         var keyPoint =
             predictedEqualSymbol == CasCaptchaImage.CasExprEqualSymbol.Chs
@@ -94,19 +120,19 @@ public class CasOnnxBackend
         // Spilt Image
         var imageDigit1 =
             CasCaptchaImage.SplitImgByRatio(
-                binImage,
+                image,
                 0,
                 keyPoint[0]
             );
         var imageOperator =
             CasCaptchaImage.SplitImgByRatio(
-                binImage,
+                image,
                 keyPoint[0],
                 keyPoint[1]
             );
         var imageDigit2 =
             CasCaptchaImage.SplitImgByRatio(
-                binImage,
+                image,
                 keyPoint[1],
                 keyPoint[2]
             );
@@ -114,12 +140,12 @@ public class CasOnnxBackend
         // Predict
         var predictedOperator =
             (CasCaptchaImage.CasExprOperator)
-            PredictResNet(_operatorSession, imageOperator);
+            PredictResNet(_sessionOperator, imageOperator);
 
         var predictedDigit1 =
-            PredictResNet(_digitSession, imageDigit1);
+            PredictResNet(_sessionDigit, imageDigit1);
         var predictedDigit2 =
-            PredictResNet(_digitSession, imageDigit2);
+            PredictResNet(_sessionDigit, imageDigit2);
 
         // Calculate Result
         var result = CasCaptchaImage.CalculateOperator(
@@ -144,9 +170,9 @@ public class CasOnnxBackend
 
     public void Dispose()
     {
-        _equalSymbolSession?.Dispose();
-        _operatorSession?.Dispose();
-        _digitSession?.Dispose();
+        _sessionEqualSymbol?.Dispose();
+        _sessionOperator?.Dispose();
+        _sessionDigit?.Dispose();
 
         _isLoaded = false;
     }
