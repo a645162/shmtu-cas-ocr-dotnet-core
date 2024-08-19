@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using shmtu.core.cas.ocr.ImageProcess;
+using shmtu.core.cas.ocr.Utils;
 
 namespace shmtu.core.cas.ocr.Backend;
 
@@ -19,6 +20,44 @@ public class CasOnnxBackend
         _sessionOperator != null &&
         _sessionDigit != null &&
         _sessionEqualSymbol != null;
+
+    public static async Task<bool> DownloadModel(string directoryPath, IProgress<float>? progress = null)
+    {
+        const string baseUrl = ConstValue.ModelOnnxBaseUrl;
+
+        string[] listFileName =
+        {
+            ConstValue.ModelOnnxEqualFp32,
+            ConstValue.ModelOnnxOperatorFp32,
+            ConstValue.ModelOnnxDigitFp32
+        };
+
+        try
+        {
+            using var client = new HttpClient();
+
+            foreach (var fileName in listFileName)
+            {
+                var url = $"{baseUrl}/{fileName}";
+                var localPath = Path.Combine(directoryPath, fileName);
+                localPath = Path.GetFullPath(localPath) ?? ".";
+
+                // Ensure the directory exists
+                if (!Directory.Exists(localPath))
+                    Directory.CreateDirectory(localPath);
+
+                // Download the file with progress reporting
+                await NetworkFile.DownloadFileAsync(client, url, localPath, progress);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading models: {ex.Message}");
+            return false;
+        }
+    }
 
     public void LoadModel(string directoryPath)
     {
