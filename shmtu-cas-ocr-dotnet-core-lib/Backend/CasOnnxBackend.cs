@@ -21,9 +21,22 @@ public class CasOnnxBackend
         _sessionDigit != null &&
         _sessionEqualSymbol != null;
 
+    public static bool CheckModelIsExist(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath)) return false;
+
+        var basePath = Path.GetFullPath(directoryPath);
+
+        return Directory.Exists(basePath) &&
+               File.Exists(Path.Combine(basePath, ConstValue.ModelOnnxEqualFp32)) &&
+               File.Exists(Path.Combine(basePath, ConstValue.ModelOnnxOperatorFp32)) &&
+               File.Exists(Path.Combine(basePath, ConstValue.ModelOnnxDigitFp32));
+    }
+
     public static async Task<bool> DownloadModel(string directoryPath, IProgress<float>? progress = null)
     {
         const string baseUrl = ConstValue.ModelOnnxBaseUrl;
+        directoryPath = Path.GetFullPath(directoryPath);
 
         string[] listFileName =
         {
@@ -36,18 +49,32 @@ public class CasOnnxBackend
         {
             using var client = new HttpClient();
 
-            foreach (var fileName in listFileName)
+            // Number of files and the progress increment per file
+            var fileCount = listFileName.Length;
+            var progressIncrement = 100f / fileCount;
+
+            for (var i = 0; i < fileCount; i++)
             {
+                var fileName = listFileName[i];
                 var url = $"{baseUrl}/{fileName}";
-                var localPath = Path.Combine(directoryPath, fileName);
-                localPath = Path.GetFullPath(localPath) ?? ".";
 
                 // Ensure the directory exists
-                if (!Directory.Exists(localPath))
-                    Directory.CreateDirectory(localPath);
+                if (!Directory.Exists(directoryPath))
+                    Directory.CreateDirectory(directoryPath);
 
-                // Download the file with progress reporting
-                await NetworkFile.DownloadFileAsync(client, url, localPath, progress);
+                var localPath = Path.Combine(directoryPath, fileName);
+
+                var startProgress = i * progressIncrement;
+                // var endProgress = (i + 1) * progressIncrement;
+
+                // Download the file with progress reporting mapped to a specific range
+                await NetworkFile.DownloadFileAsync(client, url, localPath, new Progress<float>(fileProgress =>
+                {
+                    var adjustedProgress = startProgress + fileProgress / 100f * progressIncrement;
+                    if (adjustedProgress > 100) adjustedProgress = 100;
+
+                    progress?.Report(adjustedProgress);
+                }));
             }
 
             return true;
@@ -59,21 +86,27 @@ public class CasOnnxBackend
         }
     }
 
-    public void LoadModel(string directoryPath)
+    public bool LoadModel(string directoryPath)
     {
+        if (!CheckModelIsExist(directoryPath)) return false;
+
+        var basePath = Path.GetFullPath(directoryPath);
+
         _sessionEqualSymbol =
             new InferenceSession(
-                Path.Combine(directoryPath, ConstValue.ModelOnnxEqualFp32)
+                Path.Combine(basePath, ConstValue.ModelOnnxEqualFp32)
             );
         _sessionOperator =
             new InferenceSession(
-                Path.Combine(directoryPath, ConstValue.ModelOnnxOperatorFp32)
+                Path.Combine(basePath, ConstValue.ModelOnnxOperatorFp32)
             );
         _sessionDigit =
             new InferenceSession(
-                Path.Combine(directoryPath, ConstValue.ModelOnnxDigitFp32)
+                Path.Combine(basePath, ConstValue.ModelOnnxDigitFp32)
             );
         _isLoaded = true;
+
+        return true;
     }
 
     private static int PredictModel(InferenceSession? session, DenseTensor<float> inputTensor)

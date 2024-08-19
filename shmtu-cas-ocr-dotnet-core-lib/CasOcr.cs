@@ -11,12 +11,17 @@ public class CasOcr
 
     public string ModelDirectoryPath
     {
-        get => _modelDirectoryPath;
+        get => Path.GetFullPath(_modelDirectoryPath);
         set
         {
             // Check if the directory path is valid
+            if (!Directory.Exists(value))
+                // Create
+                Directory.CreateDirectory(value);
+
             if (!Directory.Exists(value)) return;
-            _modelDirectoryPath = value;
+
+            _modelDirectoryPath = Path.GetFullPath(value);
         }
     }
 
@@ -24,7 +29,12 @@ public class CasOcr
 
     public async Task<bool> DownloadModel(IProgress<float>? progress)
     {
-        return await CasOnnxBackend.DownloadModel(_modelDirectoryPath, progress);
+        return await CasOnnxBackend.DownloadModel(ModelDirectoryPath, progress);
+    }
+
+    public bool CheckModelIsExist()
+    {
+        return CasOnnxBackend.CheckModelIsExist(ModelDirectoryPath);
     }
 
     [SupportedOSPlatform("windows6.2")]
@@ -36,7 +46,7 @@ public class CasOcr
 
         try
         {
-            _casOnnxBackend.LoadModel(_modelDirectoryPath);
+            _casOnnxBackend.LoadModel(ModelDirectoryPath);
             return true;
         }
         catch (Exception e)
