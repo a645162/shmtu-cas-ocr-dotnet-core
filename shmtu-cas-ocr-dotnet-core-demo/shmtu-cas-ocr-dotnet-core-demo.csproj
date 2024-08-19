@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\shmtu-cas-ocr-dotnet-core-lib\shmtu-cas-ocr-dotnet-core-lib.csproj" />
+        <ProjectReference Include="..\shmtu-cas-ocr-dotnet-core-lib\shmtu-cas-ocr-dotnet-core-lib.csproj"/>
     </ItemGroup>
 
 </Project>
